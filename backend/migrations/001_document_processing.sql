@@ -1,0 +1,13 @@
+ALTER TABLE documents
+    ADD COLUMN IF NOT EXISTS source_filename VARCHAR(240),
+    ADD COLUMN IF NOT EXISTS area VARCHAR(120) NOT NULL DEFAULT 'Geral',
+    ADD COLUMN IF NOT EXISTS topic VARCHAR(120) NOT NULL DEFAULT 'Geral',
+    ADD COLUMN IF NOT EXISTS document_type VARCHAR(80) NOT NULL DEFAULT 'Outro',
+    ADD COLUMN IF NOT EXISTS document_date DATE,
+    ADD COLUMN IF NOT EXISTS content_hash VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS file_size BIGINT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_documents_content_hash
+    ON documents(content_hash)
+    WHERE content_hash IS NOT NULL;
+

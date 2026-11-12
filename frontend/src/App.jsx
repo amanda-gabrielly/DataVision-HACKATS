@@ -4,7 +4,7 @@ import "./App.css";
 const API = "http://127.0.0.1:8000";
 
 async function api(path, options) {
-  const response = await fetch(`${API}${path}`, options);
+  const response = await fetch(API + path, options);
   const data = await response.json();
 
   if (!response.ok) {
@@ -13,20 +13,26 @@ async function api(path, options) {
 
   return data;
 }
-
 export default function App() {
   const [documents, setDocuments] = useState([]);
-  const [category, setCategory] = useState("Geral");
+  const [area, setArea] = useState("Geral");
+  const [topic, setTopic] = useState("Geral");
+  const [documentType, setDocumentType] = useState("Outro");
+  const [documentDate, setDocumentDate] = useState("");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState("Verificando conexão...");
 
   async function loadDocuments() {
     try {
       const result = await api("/api/documents");
       setDocuments(result);
+      setConnectionStatus("PostgreSQL conectado");
     } catch {
+      setConnectionStatus("Backend indisponível");
       setMessage("Não consegui carregar os documentos. Confira se o backend está rodando.");
     }
   }
@@ -36,29 +42,57 @@ export default function App() {
   }, []);
 
   async function upload(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
 
     setBusy(true);
     setMessage("");
+    const results = [];
 
-    const form = new FormData();
-    form.append("file", file);
-    form.append("category", category);
-
-    try {
-      const result = await api("/api/documents", {
-        method: "POST",
-        body: form,
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      setProgress({
+        current: index + 1,
+        total: files.length,
+        filename: file.name,
+        percent: Math.round((index / files.length) * 100),
       });
-      setMessage(`Documento indexado: ${result.title}`);
-      await loadDocuments();
-    } catch (error) {
-      setMessage(error.message);
-    } finally {
-      setBusy(false);
-      event.target.value = "";
+
+      const form = new FormData();
+      form.append("file", file);
+      form.append("area", area);
+      form.append("topic", topic);
+      form.append("document_type", documentType);
+      if (documentDate) form.append("document_date", documentDate);
+
+      try {
+        const result = await api("/api/documents", {
+          method: "POST",
+          body: form,
+        });
+        if (result.duplicate) {
+          results.push(file.name + ": duplicado; ignorado.");
+        } else {
+          results.push(file.name + ": processado.");
+          if (result.warning) results.push(result.warning);
+        }
+      } catch (error) {
+        results.push(file.name + ": " + error.message);
+      }
+
+      setProgress({
+        current: index + 1,
+        total: files.length,
+        filename: file.name,
+        percent: Math.round(((index + 1) / files.length) * 100),
+      });
     }
+
+    setMessage(results.join(" "));
+    setProgress(null);
+    await loadDocuments();
+    setBusy(false);
+    event.target.value = "";
   }
 
   async function ask(event) {
@@ -88,7 +122,7 @@ export default function App() {
     <main className="app">
       <header className="topbar">
         <div className="brand"><span>DV</span><div>DataVision<small>BBTS · INTELIGÊNCIA EMPRESARIAL</small></div></div>
-        <span className="connection">● PostgreSQL conectado</span>
+        <span className="connection">● {connectionStatus}</span>
       </header>
 
       <section className="intro">
@@ -101,30 +135,59 @@ export default function App() {
 
       <section className="summary">
         <div><strong>{documents.length}</strong><span>documentos indexados</span></div>
-        <div><strong>PDF</strong><span>formato aceito nesta versão</span></div>
+        <div><strong>PDF</strong><span>envio individual ou em lote</span></div>
         <div><strong>Fonte</strong><span>respostas com trechos e páginas</span></div>
       </section>
 
       <section className="columns">
         <div className="panel">
           <p className="eyebrow">01 · BASE DE CONHECIMENTO</p>
-          <h2>Adicionar documento</h2>
-          <p className="help">Envie um PDF para indexar o texto e torná-lo pesquisável.</p>
+          <h2>Adicionar documentos</h2>
+          <p className="help">Selecione um ou vários PDFs. O sistema identifica o nome, a versão e a data no arquivo quando disponíveis.</p>
 
-          <label className="field-label" htmlFor="category">Área</label>
-          <select id="category" value={category} onChange={(e) => setCategory(e.target.value)}>
+          <label className="field-label" htmlFor="area">Área</label>
+          <select id="area" value={area} onChange={(e) => setArea(e.target.value)}>
             <option>Geral</option>
-            <option>Férias</option>
-            <option>Inovação</option>
-            <option>Locação</option>
+            <option>RH</option>
+            <option>Financeiro</option>
+            <option>Jurídico</option>
+            <option>Operações</option>
           </select>
+
+          <label className="field-label" htmlFor="topic">Tema</label>
+          <input id="topic" className="metadata-input" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Ex.: férias, locação, inovação" />
+
+          <label className="field-label" htmlFor="documentType">Tipo de documento</label>
+          <select id="documentType" value={documentType} onChange={(e) => setDocumentType(e.target.value)}>
+            <option>Outro</option>
+            <option>Norma</option>
+            <option>Procedimento</option>
+            <option>Contrato</option>
+            <option>Formulário</option>
+            <option>Relatório</option>
+          </select>
+
+          <label className="field-label" htmlFor="documentDate">Data do documento (opcional)</label>
+          <input id="documentDate" className="metadata-input" type="date" value={documentDate} onChange={(e) => setDocumentDate(e.target.value)} />
+          <small className="field-help">A data informada será aplicada a todos os PDFs selecionados. Deixe vazia para tentar identificá-la pelo nome do arquivo.</small>
 
           <label className="upload">
             <span className="upload-icon">↑</span>
-            <b>{busy ? "Processando..." : "Escolher arquivo PDF"}</b>
-            <small>Clique para selecionar um documento</small>
-            <input type="file" accept=".pdf,application/pdf" onChange={upload} disabled={busy} />
+            <b>{busy ? "Processando..." : "Escolher PDF(s)"}</b>
+            <small>Clique e selecione um ou vários documentos</small>
+            <input type="file" accept=".pdf,application/pdf" multiple onChange={upload} disabled={busy} />
           </label>
+
+          {progress && (
+            <div className="upload-progress">
+              <div className="progress-label">
+                <span>Processando {progress.current} de {progress.total}</span>
+                <span>{progress.percent}%</span>
+              </div>
+              <div className="progress-track"><div style={{ width: progress.percent + "%" }} /></div>
+              <small>{progress.filename}</small>
+            </div>
+          )}
 
           <div className="doc-heading"><h3>Documentos</h3><span>{documents.length}</span></div>
           {documents.length === 0 ? (
@@ -134,7 +197,11 @@ export default function App() {
               {documents.map((doc) => (
                 <li key={doc.id}>
                   <span className="pdf">PDF</span>
-                  <div><b>{doc.title}</b><small>{doc.category} · {doc.pages} páginas · v{doc.version}</small></div>
+                  <div>
+                    <b>{doc.title}</b>
+                    <small>{doc.area} · {doc.topic} · {doc.document_type} · {doc.pages} páginas · v{doc.version}</small>
+                    <small>Arquivo: {doc.source_filename || doc.title} · Data: {doc.document_date || "não identificada"}</small>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -164,9 +231,9 @@ export default function App() {
               <p>{answer.answer}</p>
               {answer.needs_review && <div className="review">Confira as fontes antes de tomar uma decisão.</div>}
               {answer.citations.map((source, index) => (
-                <article className="citation" key={`${source.document}-${index}`}>
+                <article className="citation" key={source.document + "-" + index}>
                   <b>[{index + 1}] {source.document}</b>
-                  <small>{source.category} · página {source.page} · versão {source.version}</small>
+                  <small>{source.source_filename || source.document} · {source.area} · {source.document_type} · página {source.page} · versão {source.version}</small>
                   <blockquote>{source.excerpt}</blockquote>
                 </article>
               ))}

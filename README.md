@@ -2,40 +2,61 @@
 
 **Transformando documentos corporativos em decisões mais claras.**
 
-## Sobre o projeto
+O DataVision BBTS é um MVP para organizar documentos corporativos e encontrar evidências importantes com rapidez. O sistema permite cadastrar PDFs, separá-los por área, tema e tipo, e consultar o conteúdo com referências ao arquivo e à página.
 
-O DataVision BBTS é a proposta de um MVP de inteligência empresarial. A plataforma conecta documentos e dados corporativos a uma experiência simples de consulta, ajudando gestores a encontrar informações importantes e entender o que elas significam.
+## O que funciona nesta etapa
 
-As respostas devem apontar para as fontes que as sustentam, incluindo documento, versão, página e trecho relevante.
+- Envio de um ou vários PDFs pela aplicação.
+- Extração de texto com número da página e nome do arquivo de origem.
+- Organização por área, tema e tipo de documento.
+- Identificação de título e tentativa de identificar versão e data pelo nome ou pelos metadados do PDF.
+- Verificação de duplicidade pelo conteúdo exato do arquivo.
+- Acompanhamento do processamento em lote e retorno individual de sucesso ou erro.
+- Aviso claro quando um PDF parece digitalizado e não tem texto selecionável. OCR ainda não está ativo.
+- Busca de trechos relacionados com referência ao documento, versão e página.
+- Criação/atualização do esquema do PostgreSQL automaticamente quando a API inicia.
 
-## Problema
-
-Manuais, contratos, normas e relatórios empresariais costumam ser extensos, complexos e distribuídos. Encontrar informações específicas pode consumir tempo e exigir apoio de especialistas.
-
-## Solução proposta
-
-Uma plataforma para organizar documentos por tema, permitir perguntas em linguagem natural e destacar informações por diferentes perspectivas, como riscos, prazos, obrigações e valores.
-
-## Escopo do MVP
-
-- Envio e organização de documentos PDF por tema.
-- Extração e busca de trechos relevantes.
-- Respostas acompanhadas de fontes e evidências.
-- Síntese das informações por perspectiva de análise.
-- Painel responsivo para consultar o acervo e os resultados.
+As consultas atuais usam busca textual local. A integração com um modelo de IA pode ser adicionada em outra etapa; nenhuma chave de API é necessária para executar o MVP atual.
 
 ## Tecnologias
 
 - **Frontend:** React e Vite
 - **Backend:** Python e FastAPI
 - **Banco de dados:** PostgreSQL
-- **Processamento de PDFs:** pypdf
+- **Leitura de PDFs:** pypdf
 
-A primeira versão está sendo preparada para funcionar sem chave externa de IA. A integração com um provedor de IA poderá ser adicionada depois.
+## Pré-requisitos
 
-## Como executar o frontend
+- Node.js e npm
+- Python
+- PostgreSQL instalado e em execução
+- Banco PostgreSQL chamado `datavision` para uso local
 
-Requisitos: Node.js e npm.
+## Iniciar o backend no Windows
+
+Abra um terminal PowerShell na pasta do projeto e execute:
+
+```powershell
+cd backend
+py -m venv .venv
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+Informe a senha local do PostgreSQL sem deixá-la escrita no histórico do terminal e inicie a API:
+
+```powershell
+$secret = Read-Host "Senha local do PostgreSQL" -AsSecureString
+$env:POSTGRES_PASSWORD = (New-Object System.Net.NetworkCredential("", $secret)).Password
+python -m uvicorn main:app --reload
+```
+
+A API ficará em `http://127.0.0.1:8000`. A documentação interativa fica em `http://127.0.0.1:8000/docs`.
+
+## Iniciar o frontend
+
+Abra outro terminal PowerShell na pasta do projeto:
 
 ```powershell
 cd frontend
@@ -43,21 +64,14 @@ npm install
 npm run dev
 ```
 
-O Vite exibirá o endereço local para abrir a aplicação no navegador.
+Abra o endereço mostrado pelo Vite, normalmente `http://localhost:5173`.
 
-## Estrutura do projeto
+## Banco compartilhado
 
-```text
-DataVision-HACKATS/
-├── frontend/       # Aplicação React
-├── backend/        # API em Python
-└── README.md
-```
+Para apontar a API a um PostgreSQL compartilhado, configure a variável de ambiente `DATABASE_URL` no terminal do backend antes de iniciar a API. A conexão deve usar o driver PostgreSQL do projeto (`postgresql+psycopg://...`). Quando `DATABASE_URL` não estiver definida, a API usa o PostgreSQL local e a variável `POSTGRES_PASSWORD`.
 
-## Estado atual
-
-O projeto está em desenvolvimento. A estrutura inicial do frontend foi criada e as dependências do backend foram instaladas. A configuração do PostgreSQL e a implementação das funcionalidades do MVP ainda estão em andamento.
+Não coloque senhas, URLs completas com credenciais ou chaves de API no Git. Cada integrante deve configurar suas próprias variáveis de ambiente. O esquema é atualizado automaticamente ao iniciar a API; o SQL da migração também fica versionado em `backend/migrations/001_document_processing.sql`.
 
 ## Dados e segurança
 
-Durante o hackathon, use apenas dados sintéticos ou anonimizados. Não envie senhas, chaves de API ou credenciais para o repositório.
+Durante o hackathon, use apenas dados sintéticos ou anonimizados. Os PDFs não são guardados como arquivos pelo backend nesta etapa; são armazenados no banco o texto extraído, a página, o nome de origem e os metadados necessários para consulta.
