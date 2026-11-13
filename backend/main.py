@@ -15,24 +15,16 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    create_engine,
     func,
     select,
 )
-from sqlalchemy.engine import URL
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
+if __package__:
+    from .Infrastructure.database.connection import engine
+else:
+    from Infrastructure.database.connection import engine
 
-database_url = URL.create(
-    "postgresql+psycopg",
-    username="postgres",
-    password=os.getenv("POSTGRES_PASSWORD", ""),
-    host="localhost",
-    port=5432,
-    database="datavision",
-)
-
-engine = create_engine(database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
