@@ -1,5 +1,5 @@
 
-from sqlalchemy import Column, String, DateTime
+from sqlalchemy import Column, String, DateTime, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
@@ -11,18 +11,20 @@ class DocumentoModel(Base):
 
     id_documento = Column(
         UUID(as_uuid=True),
-        primary_key=True
+        primary_key=True,
+        server_default=text("gen_random_uuid()")
     )
 
     codigo = Column(String(50), unique=True, nullable=False)
     titulo = Column(String(255), nullable=False)
-    tipo = Column(String(50))
-    categoria = Column(String(50))
-    classificacao = Column(String(20))
+    tipo = Column(String(50), nullable=True)
+    categoria = Column(String(50), nullable=False)
+    classificacao = Column(String(20), nullable=False)
 
-    criado_por = Column(UUID(as_uuid=True), nullable=False)
+    criado_por = Column(UUID(as_uuid=True), nullable=True)
 
     criado_em = Column(
-        DateTime,
+        DateTime(timezone=True),
+        nullable=False,
         server_default=func.now()
     )
